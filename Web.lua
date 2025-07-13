@@ -1,55 +1,30 @@
--- Wait for the Roblox Prompt GUI to be available
-repeat task.wait() until game:GetService('CoreGui'):FindFirstChild('RobloxPromptGui')
+repeat wait() until game.CoreGui:FindFirstChild('RobloxPromptGui')
 
--- Services
-local Players = game:GetService('Players')
-local TeleportService = game:GetService('TeleportService')
-local VirtualUser = game:GetService('VirtualUser')
-local HttpService = game:GetService("HttpService")
-local CoreGui = game:GetService('CoreGui')
+local lp,po,ts = game:GetService('Players').LocalPlayer,game.CoreGui.RobloxPromptGui.promptOverlay,game:GetService('TeleportService')
 
--- Local Player
-local LocalPlayer = Players.LocalPlayer
-
--- Anti-AFK Kick
-LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-    
-    -- Create a simple notification on screen
-    local notifyGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
-    local notifyLabel = Instance.new("TextLabel", notifyGui)
-    notifyLabel.Size = UDim2.new(1, 0, 0, 50)
-    notifyLabel.Position = UDim2.new(0, 0, 0, -50)
-    notifyLabel.BackgroundColor3 = Color3.new(0, 0, 0)
-    notifyLabel.BackgroundTransparency = 0.5
-    notifyLabel.TextColor3 = Color3.new(1, 1, 1)
-    notifyLabel.FontSize = Enum.FontSize.Size24
-    notifyLabel.Text = "You went idle, but we prevented the kick!"
-    
-    task.wait(3)
-    notifyGui:Destroy()
-end)
-
--- Error Handling (e.g., disconnected from server)
-local promptOverlay = CoreGui.RobloxPromptGui.promptOverlay
-promptOverlay.ChildAdded:connect(function(child)
-    if child.Name == 'ErrorPrompt' then
-        -- Teleport once to the same place to attempt reconnection. Avoid infinite loops.
-        TeleportService:Teleport(game.PlaceId)
+po.ChildAdded:connect(function(a)
+    if a.Name == 'ErrorPrompt' then
+        repeat
+            ts:Teleport(game.PlaceId)
+            wait(2)
+        until false
     end
 end)
 
--- Configuration for LINE Notify
-local channelToken = "LJhin0MVfYPA3EsTv8lAAYTVdHAr35ToVtcGFT03ShvByslB5wHXlvEGmuaw0FmthrQQYBvsnRA9CzOCzkKTgqilrcof7+ZZdU+Z+6qUprjZdoYAeBEynjdYGiDZvxgnJwx2jwCsRHopP0OApsbCMgdB04t89/1O/w1cDnyilFU="
-local userIds = {
-    "Uc04421c89ce6df255a999fac7e25ed0b",
-    "Ue4801642cb03ba4b016ddb0d7bf6a371",
-    "U41dab69261906d9caffa4c89509c34a2",
-    "U44009be1d8fb1a100833e0200dd049b0"
-}
 
--- Items to Monitor
+local bb = game:GetService('VirtualUser')
+local Players = game:GetService('Players')
+
+Players.LocalPlayer.Idled:Connect(function()
+    bb:CaptureController()
+    bb:ClickButton2(Vector2.new())
+    if ab then
+        ab.Text = "You went idle and ROBLOX tried to kick you but we reflected it!"
+        task.wait(2)
+        ab.Text = "Script Re-Enabled"
+    end
+end)
+
 local seedsToMonitor = {
     "Carrot", "Strawberry", "Blueberry", "Orange Tulip", "Tomato", "Daffodil",
     "Watermelon", "Pumpkin", "Apple", "Bamboo", "Coconut", "Cactus", "Dragon Fruit",
@@ -63,14 +38,33 @@ local gearsToMonitor = {
     "Tanning Mirror", "Trowel", "Watering Can"
 }
 
--- Convert arrays to sets for faster lookups
+local channelToken = "LJhin0MVfYPA3EsTv8lAAYTVdHAr35ToVtcGFT03ShvByslB5wHXlvEGmuaw0FmthrQQYBvsnRA9CzOCzkKTgqilrcof7+ZZdU+Z+6qUprjZdoYAeBEynjdYGiDZvxgnJwx2jwCsRHopP0OApsbCMgdB04t89/1O/w1cDnyilFU="
+
+local userIds = {
+    "Uc04421c89ce6df255a999fac7e25ed0b",
+    "Ue4801642cb03ba4b016ddb0d7bf6a371",
+    "U41dab69261906d9caffa4c89509c34a2",
+    "U44009be1d8fb1a100833e0200dd049b0"
+}
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+
 local seedsToMonitorSet = {}
-for _, seedName in ipairs(seedsToMonitor) do seedsToMonitorSet[seedName] = true end
+for _, seedName in ipairs(seedsToMonitor) do
+    seedsToMonitorSet[seedName] = true
+end
 
 local gearsToMonitorSet = {}
-for _, gearName in ipairs(gearsToMonitor) do gearsToMonitorSet[gearName] = true end
+for _, gearName in ipairs(gearsToMonitor) do
+    gearsToMonitorSet[gearName] = true
+end
 
--- Function to send LINE message
+local http_request = http_request or request
+if not http_request then
+    error("HTTP request function not found!")
+end
+
 function SendLineMessage(message, imageUrl)
     local headers = {
         ["Content-Type"] = "application/json",
@@ -78,20 +72,28 @@ function SendLineMessage(message, imageUrl)
     }
 
     for _, userId in ipairs(userIds) do
-        local messages = { { type = "text", text = message } }
+        local data = {
+            to = userId,
+            messages = {
+                {
+                    type = "text",
+                    text = message
+                }
+            }
+        }
+
         if imageUrl then
-            table.insert(messages, {
+            table.insert(data.messages, {
                 type = "image",
                 originalContentUrl = imageUrl,
                 previewImageUrl = imageUrl
             })
         end
 
-        local data = { to = userId, messages = messages }
         local body = HttpService:JSONEncode(data)
 
         local success, response = pcall(function()
-            return HttpService:RequestAsync({
+            return http_request({
                 Url = "https://api.line.me/v2/bot/message/push",
                 Method = "POST",
                 Headers = headers,
@@ -100,23 +102,38 @@ function SendLineMessage(message, imageUrl)
         end)
 
         if not success then
-            warn("Failed to send LINE message to " .. userId .. ": " .. tostring(response))
+            warn("Failed to send message to " .. userId)
         end
     end
 end
 
--- Function to check available seeds in the shop
 function CheckAvailableSeeds()
-    local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-    local seedShop = playerGui:WaitForChild("Seed_Shop")
-    local scrollingFrame = seedShop.Frame:WaitForChild("ScrollingFrame")
-    
+    local player = Players.LocalPlayer
+    if not player or not player.PlayerGui then
+        return
+    end
+
+    local seedShop = player.PlayerGui:FindFirstChild("Seed_Shop")
+    if not seedShop then
+        return
+    end
+
+    local scrollingFrame = seedShop.Frame:FindFirstChild("ScrollingFrame")
+    if not scrollingFrame then
+        return
+    end
+
+    local frames = scrollingFrame:GetChildren()
     local availableSeeds = {}
-    for _, item in ipairs(scrollingFrame:GetChildren()) do
-        if item:IsA("Frame") and seedsToMonitorSet[item.Name] then
-            local costTextLabel = item:FindFirstChild("Main_Frame", true) and item.Main_Frame:FindFirstChild("Cost_Text")
+
+    for _, item in ipairs(frames) do
+        local seedName = item.Name
+        if seedsToMonitorSet[seedName] then
+            local mainFrame = item:FindFirstChild("Main_Frame")
+            local costTextLabel = mainFrame and mainFrame:FindFirstChild("Cost_Text")
+
             if costTextLabel and costTextLabel.Text ~= "NO STOCK" then
-                table.insert(availableSeeds, item.Name)
+                table.insert(availableSeeds, seedName)
             end
         end
     end
@@ -128,18 +145,33 @@ function CheckAvailableSeeds()
     end
 end
 
--- Function to check available gears in the shop
 function CheckAvailableGears()
-    local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-    local gearShop = playerGui:WaitForChild("Gear_Shop")
-    local scrollingFrame = gearShop.Frame:WaitForChild("ScrollingFrame")
-    
+    local player = Players.LocalPlayer
+    if not player or not player.PlayerGui then
+        return
+    end
+
+    local gearShop = player.PlayerGui:FindFirstChild("Gear_Shop")
+    if not gearShop then
+        return
+    end
+
+    local scrollingFrame = gearShop.Frame:FindFirstChild("ScrollingFrame")
+    if not scrollingFrame then
+        return
+    end
+
+    local frames = scrollingFrame:GetChildren()
     local availableGears = {}
-    for _, item in ipairs(scrollingFrame:GetChildren()) do
-        if item:IsA("Frame") and gearsToMonitorSet[item.Name] then
-            local costTextLabel = item:FindFirstChild("Main_Frame", true) and item.Main_Frame:FindFirstChild("Cost_Text")
+
+    for _, item in ipairs(frames) do
+        local gearName = item.Name
+        if gearsToMonitorSet[gearName] then
+            local mainFrame = item:FindFirstChild("Main_Frame")
+            local costTextLabel = mainFrame and mainFrame:FindFirstChild("Cost_Text")
+
             if costTextLabel and costTextLabel.Text ~= "NO STOCK" then
-                table.insert(availableGears, item.Name)
+                table.insert(availableGears, gearName)
             end
         end
     end
@@ -151,29 +183,37 @@ function CheckAvailableGears()
     end
 end
 
--- Main monitoring loop
-task.spawn(function()
-    local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-    
-    while true do
-        task.wait(1) -- Check every second, which is much more efficient
-        
-        local seedShop = playerGui:FindFirstChild("Seed_Shop")
-        if seedShop and seedShop.Enabled then
-            local seedTimer = seedShop.Frame.Frame:FindFirstChild("Timer")
-            if seedTimer and string.find(seedTimer.Text, "4m 49s") then
-                task.wait(0.1) -- Short delay to ensure shop items have updated
+function MonitorTimers()
+    local player = Players.LocalPlayer
+    if not player or not player.PlayerGui then
+        return
+    end
+
+    local seedShop = player.PlayerGui:FindFirstChild("Seed_Shop")
+    local gearShop = player.PlayerGui:FindFirstChild("Gear_Shop")
+
+    if seedShop then
+        local seedTimer = seedShop.Frame.Frame:FindFirstChild("Timer")
+        if seedTimer then
+            if string.match(seedTimer.Text, "New seeds in 4m 59s") then
                 CheckAvailableSeeds()
             end
         end
+    end
 
-        local gearShop = playerGui:FindFirstChild("Gear_Shop")
-        if gearShop and gearShop.Enabled then
-            local gearTimer = gearShop.Frame.Frame:FindFirstChild("Timer")
-            if gearTimer and string.find(gearTimer.Text, "4m 49s") then
-                task.wait(0.1) -- Short delay to ensure shop items have updated
+    if gearShop then
+        local gearTimer = gearShop.Frame.Frame:FindFirstChild("Timer")
+        if gearTimer then
+            if string.match(gearTimer.Text, "New gear in 4m 59s") then
                 CheckAvailableGears()
             end
         end
+    end
+end
+
+task.spawn(function()
+    while true do
+        MonitorTimers()
+        task.wait()
     end
 end)
